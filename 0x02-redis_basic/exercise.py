@@ -21,12 +21,28 @@ def count_calls(method: Callable) -> Callable:
     return wrapper
 
 
+def call_history(method: Callable) -> Callable:
+    """decorator that takes a single method Callable argument"""
+    in_data = method.__qualname__ + ":inputs"
+    out_data = method.__qualname__ + ":outputs"
+
+    @wraps(method)
+    def wrapper(self, *args):
+        """Create and return function that increments the count for that key
+        every time the method is called"""
+        self._redis.rpush(in_data, str(args))
+        self._redis.rpush(out_data, method(self, *args))
+        return method(self, *args)
+    return wrapper
+
+
 class Cache:
     def __init__(self):
         """store an instance of the Redis client as a private variable"""
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @call_history
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """takes a data argument and returns a string"""
